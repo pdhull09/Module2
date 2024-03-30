@@ -1,6 +1,8 @@
 import phylib;
 import os;
 import sqlite3;
+import math
+FRAME_RATE= 0.01
 ################################################################################
 # import constants from phylib to global varaibles
 BALL_RADIUS   = phylib.PHYLIB_BALL_RADIUS;
@@ -59,7 +61,6 @@ class Coordinate( phylib.phylib_coord ):
     """
     pass;
 
-
 ################################################################################
 class StillBall( phylib.phylib_object ):
     """
@@ -84,8 +85,13 @@ class StillBall( phylib.phylib_object ):
 
 
     # add an svg method here
-    def svg(self, BALL_RADIUS, BALL_COLOURS):
-        return f'<circle cx="{self.pos[0]}" cy="{self.pos[1]}" r="{BALL_RADIUS}" fill="{BALL_COLOURS[self.number]}" />\n'
+    def svg(self):
+        """
+        Returns the SVG representation of a StillBall object.
+        """
+        return f"""<circle cy="%d" cx="%d" r="%d" fill="%s" />\n""" % (self.obj.still_ball.pos.y, self.obj.still_ball.pos.x, BALL_RADIUS, BALL_COLOURS[self.obj.still_ball.number]);
+
+
 
 
 
@@ -115,11 +121,14 @@ class RollingBall(phylib.phylib_object):
         # this converts the phylib_object into a RollingBall class
         self.__class__ = RollingBall
 
-    # add an svg method here
-    def svg(self, BALL_RADIUS, BALL_COLOURS):
-        return f'<circle cx="{self.pos[0]}" cy="{self.pos[1]}" r="{BALL_RADIUS}" fill="{BALL_COLOURS[self.number]}" />\n'
+    def svg(self):
+        """
+        Returns the SVG representation of a RollingBall object.
+        """
+        return f"""<circle cy="%d" cx="%d" r="%d" fill="%s" />\n""" % (self.obj.rolling_ball.pos.y, self.obj.rolling_ball.pos.x, BALL_RADIUS, BALL_COLOURS[self.obj.rolling_ball.number]);
 
 ###########################################################################################
+
 
 ## Hole class here
 class Hole(phylib.phylib_object):
@@ -143,11 +152,13 @@ class Hole(phylib.phylib_object):
         # this converts the phylib_object into a Hole class
         self.__class__ = Hole
     # SVG method here
-    def svg(self, HOLE_RADIUS):
-        return f'<circle cx="{self.pos[0]}" cy="{self.pos[1]}" r="{HOLE_RADIUS}" fill="black" />\n'
+    def svg(self):
+        return f"""<circle cx="{self.obj.hole.pos.x}" cy="{self.obj.hole.pos.y}" r="{HOLE_RADIUS}" fill="black" />\n"""
 
 ######################################################################################
 
+
+## Hcushion class  here
 ## Hcushion class  here
 class HCushion(phylib.phylib_object):
     """
@@ -172,9 +183,9 @@ class HCushion(phylib.phylib_object):
 
     # SVG method here
     def svg(self):
-        y = -25 if self.y == 0 else 2700
-        return f'<rect width="1400" height="25" x="-25" y="{y}" fill="darkgreen" />\n'
-#--------------------------------------------------------------------------------------
+        y = -25 if self.obj.hcushion.y == 0 else 2700
+        return f"""<rect width="1400" height="25" x="-25" y="{y}" fill="darkgreen" />\n"""
+
 
 # Vcushion class here
 class VCushion(phylib.phylib_object):
@@ -199,8 +210,8 @@ class VCushion(phylib.phylib_object):
         self.__class__ = VCushion
     # SVG method here
     def svg(self):
-        x = -25 if self.x == 0 else 1350
-        return f'<rect width="25" height="2750" x="{x}" y="-25" fill="darkgreen" />\n'
+        x = -25 if self.obj.vcushion.x == 0 else 1350
+        return f"""<rect width="25" height="2750" x="{x}" y="-25" fill="darkgreen" />\n"""
 #--------------------------------------------------------------------------------------
 
 class Table( phylib.phylib_table ):
@@ -275,8 +286,8 @@ class Table( phylib.phylib_table ):
         """
         result = "";    # create empty string
         result += "time = %6.1f;\n" % self.time;    # append time
-        for i,obj in enumerate(self): # loop over all objects and number them
-            result += "  [%02d] = %s\n" % (i,obj);  # append object description
+        for i,object in enumerate(self): # loop over all objects and number them
+            result += "  [%02d] = %s\n" % (i,object);  # append object description
         return result;  # return the string
 
     def segment( self ):
@@ -303,12 +314,45 @@ class Table( phylib.phylib_table ):
         The method returns the string.
         """
         svg_string = HEADER
-        for obj in self:
-            if hasattr(obj, 'svg'):
-                svg_string += obj.svg()
+        for object in self:
+            if object is not None:
+                svg_string += object.svg()
         svg_string += FOOTER
 
         return svg_string
+
+    def roll( self, t ):
+        new = Table();
+        for ball in self:
+            if isinstance( ball, RollingBall ):
+                # create4 a new ball with the same number as the old ball
+                new_ball = RollingBall( ball.obj.rolling_ball.number,
+                                        Coordinate(0,0),
+                                        Coordinate(0,0),
+                                        Coordinate(0,0) );
+                # compute where it rolls to
+                phylib.phylib_roll( new_ball, ball, t );
+                # add ball to table
+                new += new_ball;
+            elif isinstance( ball, StillBall ):
+                 # create a new ball with the same number and pos as the old ball
+                new_ball = StillBall( ball.obj.still_ball.number,
+                                      Coordinate( ball.obj.still_ball.pos.x,
+                                                  ball.obj.still_ball.pos.y ) );
+                # add ball to table
+                new += new_ball;
+        # return table
+        return new;
+
+    def findCueBall(self):
+        # Finding and returning cue Ball from the table
+        for obj in self:
+            if isinstance(obj, StillBall) and obj.obj.still_ball.number==0:
+                return obj
+            elif isinstance(obj, RollingBall) and obj.obj.rolling_ball.number==0:
+                return obj
+            else:
+                return None
 #----------------------------------------------------------------------------------------------------------------------
 # New Code here for A3
 class Database:
@@ -349,13 +393,11 @@ class Database:
                             )''')
 
         # table 4 Shot
-        self.cur.execute('''CREATE TABLE IF NOT EXISTS Shot (
-                         SHOTID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                         PLAYERID INTEGER NOT NULL,
-                         GAMEID INTEGER NOT NULL
-                         FOREIGN  KEY(PLAYERID) REFERENCES Player(PLAYERID),
-                         FOREIGN  KEY(GAMEID) REFERENCES Game(GAMEID)
-                         )''')
+        self.cur.execute("""CREATE TABLE Shot (SHOTID INTEGER NOT NULL UNIQUE PRIMARY KEY AUTOINCREMENT,
+                    PLAYERID INTEGER NOT NULL,
+                    GAMEID INTEGER NOT NULL,
+                    FOREIGN KEY (PLAYERID) REFERENCES Player (PLAYERID),
+                    FOREIGN KEY (GAMEID) REFERENCES Game (GAMEID))""")
 
         # table 5 TableShot
         self.cur.execute('''CREATE TABLE IF NOT EXISTS TableShot (
@@ -379,95 +421,269 @@ class Database:
                          FOREIGN KEY (GAMEID) REFERENCES Game(GAMEID)
                          )''')
         # closing connection and commiting now
-        self.cur.close()
+       # self.cur.close()
         self.conn.commit()
 
     def readTable(self, tableID):
-        self.cur = self.conn.cursor()
-        self.cur.execute("""
-        SELECT Ball.BALLID, Ball.BALLNO, Ball.XPOS, Ball.YPOS, Ball.XVEL, Ball.YVEL, TTable.TIME
-        FROM BallTable
-        JOIN Ball ON BallTable.BALLID = Ball.BALLID
-        JOIN TTable ON BallTable.TABLEID = TTable.TABLEID
-        WHERE BallTable.TABLEID = ?
-        """, (tableID + 1,))
 
-        rows = self.cur.fetchall()
-        self.cur.close()
+        SQLquery = f""" SELECT Ball.BALLID, Ball.BALLNO, Ball.XPOS, Ball.YPOS, Ball.XVEL, Ball.YVEL, TTable.TIME
+                        FROM Ball
+                        JOIN TTable ON BallTable.TABLEID = TTable.TABLEID
+                        JOIN BallTable ON Ball.BALLID = BallTable.BALLID
+                        WHERE BallTable.TABLEID = {tableID + 1}
+                         """
 
-        if not rows:
-            return None
 
-        table = Table()  # Initialize a Table object
-        for row in rows:
-            ball_id, ball_no, xpos, ypos, xvel, yvel, time = row
-            if xvel is None and yvel is None:
-                ball = StillBall(ball_no, (xpos, ypos))  # Instantiate StillBall object
-            else:
-                vel = (xvel, yvel)
-                acc = None  # Assuming acceleration is not provided in the database
-                ball = RollingBall(ball_no, (xpos, ypos), vel, acc)  # Instantiate RollingBall object
-                # Set the acceleration of the ball as per your A2 requirements
-                # ball.set_acceleration(...)
+        balls_info = self.cur.execute(SQLquery).fetchall();
 
-            table += ball  # Add ball object to the table
+        if not balls_info:
+            return None;
 
-        # Add the standard holes and cushions to the table as per your A2 requirements
-        # Assuming you have predefined positions for holes and cushions
-        table += Hole((0, 0))  # Example position for hole
-        table += HCushion(0)   # Example position for horizontal cushion
-        table += VCushion(0)   # Example position for vertical cushion
+        table = Table();
 
-        table.time = time  # Set the table's time attribute
-        return table  # Return the populated Table object
+        table.time = balls_info[0][-1]  #  last row is Time
+
+        for ball in balls_info:
+            _, ball_no, x_coord, y_coord, x_vel, y_vel, _ = ball  # added _ to include BALLNO in correct ordering (From internet)
+
+            if x_vel !=0 and y_vel != 0:
+                Ball = RollingBall(ball_no, Coordinate(x_coord, y_coord), Coordinate(x_vel, y_vel), Coordinate(0, 0)); # constructor function Note BAll not ,ball different
+
+
+            elif x_vel == 0 and y_vel == 0:
+                Ball = StillBall(ball_no, Coordinate(x_coord, y_coord));
+             # Using ball_no for colour
+
+            table +=  Ball
+
+        return table
 
     def writeTable(self, table):
-        """
-        This method stores the contents of the Table class object named table in the database.
-        """
-        # Insert into TTable
-        self.cur.execute("INSERT INTO TTable (TIME) VALUES (?)", (table.time,))
-        table_id = self.cur.lastrowid - 1  # Adjusting for zero-indexing
 
-        # Insert into Ball and BallTable
-        for ball in table.balls:
-            self.cur.execute("INSERT INTO Ball (BALLNO, XPOS, YPOS, XVEL, YVEL) VALUES (?, ?, ?, ?, ?)",
-                             (ball.ballno, ball.xpos, ball.ypos, ball.xvel, ball.yvel))
-            ball_id = self.cur.lastrowid
-            self.cur.execute("INSERT INTO BallTable (BALLID, TABLEID) VALUES (?, ?)", (ball_id, table_id))
+        self.cur.execute("INSERT INTO TTable (TIME) VALUES (?)", (table.time,)) # inserting time
+        table_id_no = self.cur.lastrowid
 
-        # Commit changes and return table_id
+        for object in table:
+
+            # check --- rolling ball
+            if isinstance(object, RollingBall):
+
+                x_pos = object.obj.rolling_ball.pos.x;
+                y_pos = object.obj.rolling_ball.pos.y;
+                x_vel = object.obj.rolling_ball.vel.x;
+                y_vel = object.obj.rolling_ball.vel.y;
+                ball_no = object.obj.rolling_ball.number
+                self.cur.execute("INSERT INTO Ball (BALLNO, XPOS, YPOS, XVEL, YVEL) VALUES (?, ?, ?, ?, ?)", (ball_no, x_pos, y_pos, x_vel, y_vel))
+
+                ball_id_no = self.cur.lastrowid
+                self.cur.execute("INSERT INTO BallTable (BALLID, TABLEID) VALUES (?,?)",(ball_id_no,table_id_no));
+
+
+            # check -- stillBall
+
+            elif isinstance(object, StillBall):
+                x_pos = object.obj.still_ball.pos.x;
+                y_pos= object.obj.still_ball.pos.y;
+                ball_no = object.obj.still_ball.number;
+                y_vel=0;
+                x_vel=0;
+
+                self.cur.execute("INSERT INTO Ball (BALLNO, XPOS, XVEL, YPOS, YVEL) VALUES (?, ?, ?, ?, ?)", (ball_no, x_pos, x_vel, y_pos, y_vel));
+
+                ball_id_no = self.cur.lastrowid;
+                self.cur.execute("INSERT INTO BallTable ( TABLEID,BALLID) VALUES (?, ?)", (table_id_no,ball_id_no,));
+
+
+
         self.conn.commit()
-        return table_id
-#---------------------------------------------------------------------------------------------------------------
+        return table_id_no  # returning taable id , function looks good now !
+
+    def close(self):
+        self.conn.commit()  # simple function definition
+        self.conn.close()
+
+    def get_Info_from_GameID(self, gameID):
+        # Retrieve game details using join across Game and Player tables
+        Query = """ SELECT  gm.GAMENAME, p1.PLAYERNAME as Player1, p2.PLAYERNAME as Player2
+                    FROM Game gm
+                    JOIN Player p1 ON gm.GAMEID = p1.GAMEID
+                    JOIN PLAYER p2 ON gm.GAMEID = p2.GAMEID
+                    WHERE gm.GAMEID = ? AND p1.PLAYERID < p2.PLAYERID
+                    ORDER BY p1.PLAYERID ASC , p2.PLAYERID ASC
+                    """
+        data = self.cur.execute(Query, (gameID, )).fetchone() # tuple with ( gamename , PLayer1Name, Player2Name)
+        if data:
+            return data
+        else:
+            return None, None ,None
+
+    def createGamewithPlayers(self,gameName, player1Name, player2Name):
+        #inserting new game into Game table
+        self.cur.execute("INSERT INTO Game (GAMENAME) VALUES (?)", (gameName,))
+        gameID = self.cur.lastrowid
+
+        #inserting first player
+        self.cur.execute("INSERT INTO Player (GAMEID, PLAYERNAME) VALUES (?, ?)", (gameID, player1Name))
+        #inserting 2 player
+        self.cur.execute("INSERT INTO Player (GAMEID, PLAYERNAME) VALUES (?, ?)", (gameID, player2Name))
+        self.conn.commit()
+        return gameID
+
+    def getGame (self, gameID):
+        Query = f"""
+        SELECT Game.GAMENAME, P1.PLAYERNAME as Player1, P2.PLAYERNAME as Player2
+        FROM Game
+        JOIN Player P1 ON Game.GAMEID= P1.GAMEID AND P1.PLAYERID = (
+            SELECT MIN(PLAYERID) FROM Player WHERE GAMEID = {gameID+1}
+        )
+        JOIN Player P2 ON Game.GAMEID= P2.GAMEID AND P2.PLAYERID = (
+            SELECT MAX(PLAYERID) FROM Player WHERE GAMEID = {gameID+1}
+        )
+        WHERE Game.GAMEID ={gameID+1}
+        """
+        result=self.cur.execute(Query).fetchone()
+        if result:
+            return result
+        else:
+            return None, None, None
+
+    def setGame(self, gameName, player1Name,player2Name):
+        self.cur.execute("INSERT INTO Game (GAMENAME VALUES (?)", (gameName,))
+        gameID=self.cur.lastrowid
+        self.cur.execute("INSERT INTO Player (GAMEID,PLAYERNAME) VALUES (?,?)", (gameID, player1Name))
+        self.cur.execute("INSERT INTO Player (GAMEID,PLAYERNAME) VALUES (?,?)", (gameID, player2Name))
+        self.conn.commit()
+        return gameID-1 #adjust for zero based index
+
+    def getPlayerID(self, gameID, playerName):
+        Query= """
+               SELECT PLAYERID FROM Player WHERE GAMEID = ? AND PLAYERNAME = ?
+            """
+        try:
+            self.cur.execute(Query, (gameID, playerName))
+            result = self.cur.fetchone()
+            return result[0] if result else None
+        except Exception as e:
+            print(f"Error retrieving player ID:{e}")
+            return None;
+
+    def recordTableShot(self,tableID, shotID):
+        try:
+            self.cur.execute("INSERT INTO Tableshot(TABLEID, SHOTID) VALUES (?,?0)", (tableID, shotID))
+            self.conn.commit()
+            return shotID
+        except Exception as e:
+            print(f"Issue in recordTableshot : {e}")
+#--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Game class implemented here now
 
 class Game:
-    def __init__(self, gameID=None, gameName=None, player1Name=None, player2Name=None, table=None):
+
+    def __init__(self, gameID=None, gameName=None, player1Name=None, player2Name=None, ):
+
         self.db = Database()
-        if gameID is not None and all(arg is None for arg in [gameName, player1Name, player2Name, table]):
-            self.gameID = gameID + 1  # Adjusting for zero-indexing
-            self.getGame()  # Retrieve game details from the database
-        elif gameID is None and all(arg is not None for arg in [gameName, player1Name, player2Name, table]):
+        print("GAME initialised !!! ")
+
+        if gameID is not None :
+            print(f"Starting wioth game id : {gameID}")
+            self.gameID = gameID
+            details = self.db.get_Info_from_GameID(gameID)
+            if details:
+                self.gameName, self.player1Name, self.player2Name = details
+                print(f"Game loaded : {self.gameName}, PlayerNAmes : {self.player1Name}, {self.player2Name}")
+            else:
+                print("Given GameID not found ")
+                raise ValueError("Given GameID not found ")
+
+        elif all([gameName, player1Name, player2Name]):
+            print("")
             self.gameName = gameName
             self.player1Name = player1Name
             self.player2Name = player2Name
-            self.table = table
-            self.setGame()  # Add new game details to the database
+
+            self.gameID = self.db.createGamewithPlayers(gameName, player1Name, player2Name)
         else:
             raise TypeError("Invalid combination of arguments provided to the constructor.")
 
-    def getGame(self):
-        # Retrieve game details from the database using a helper method in the Database class
-        self.gameName, self.player1Name, self.player2Name = self.db.getGame(self.gameID)
-        self.table = self.db.readTable(self.gameID)
+        self.table = None  # table initialisation
 
-    def setGame(self):
-        # Add new game details to the database using a helper method in the Database class
-        self.gameID = self.db.setGame(self.gameName, self.player1Name, self.player2Name)
-        self.db.writeTable(self.table)
+
 
     def shoot(self, gameName, playerName, table, xvel, yvel):
-        # Add a new entry to the Shot table for the current game and the given playerID
-        shotID = self.db.newShot(gameName, playerName, table, xvel, yvel)
-        return shotID
+
+        # checking if game name matches
+        if gameName != self.gameName:
+            raise ValueError(f"The game {gameName} does not match with this game session .")
+
+        # Validating player ID
+        playerID= self.db.getPlayerID(self.gameID, playerName)
+        if playerID is None:
+            raise ValueError(f"Player {playerName} not found in game")
+
+        # Recording a new shot in database
+        shotID=self.db.newShot(self.gameID, playerID)
+        print(f"New shot ID: {shotID}")
+        print("before calculations")
+        print(table)
+
+        #Finding cueball
+        cue_ball = table.findCueBall()
+        if cue_ball is None:
+            raise ValueError("cue ball not found ")
+        print("cue ball - ")
+        print(cue_ball)
+
+        # Updating cueBall data now
+
+        cue_ballX = cue_ball.obj.still_ball.pos.x
+        cue_ballY = cue_ball.obj.still_ball.pos.y
+
+        cue_ball.type = phylib.PHYLIB_ROLLING_BALL;
+
+        cue_ball.obj.rolling_ball.vel.x = xvel
+        cue_ball.obj.rolling_ball.vel.y = yvel
+        cue_ball.obj.rolling_ball.pos.x = cue_ballX
+        cue_ball.obj.rolling_ball.pos.y = cue_ballY
+
+        speed = math.sqrt(xvel**2 + yvel**2)
+        accX=0.0
+        accY=0.0
+        if speed > FRAME_RATE:
+            accX= -(xvel/speed)*DRAG
+            accY = -(yvel/speed)* DRAG
+        else:
+            accX=0
+            accY=0
+        cue_ball.obj.rolling_ball.acc.x=accX
+        cue_ball.obj.rolling_ball.acc.y=accY
+        print("Cue ball after calculation")
+        print(cue_ball)
+
+        initialTableID= self.db.writeTable(table)
+        self.db.recordTableShot(initialTableID, shotID)
+
+        print("PRocessing segments ...")
+
+        oldTime=table.time
+
+        while table is not None:
+            seg=table.segment()
+            if seg is None:
+                break
+            newTime = seg.time
+            loopTime = math.floor((newTime-oldTime) / 0.01)
+
+            for k in range(loopTime):
+                lTime = k*FRAME_RATE
+                copyTable = table.roll(lTime)
+                copyTable.time=oldTime+ lTime
+
+                tId = self.db.writeTable(copyTable)
+                self.db.recordTableShot(tId, shotID)
+
+            table = seg
+            oldTime = table.time
+
+
+
+
