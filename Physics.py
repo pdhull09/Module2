@@ -351,8 +351,7 @@ class Table( phylib.phylib_table ):
                 return obj
             elif isinstance(obj, RollingBall) and obj.obj.rolling_ball.number==0:
                 return obj
-            else:
-                return None
+        return None
 #----------------------------------------------------------------------------------------------------------------------
 # New Code here for A3
 class Database:
@@ -569,11 +568,23 @@ class Database:
 
     def recordTableShot(self,tableID, shotID):
         try:
-            self.cur.execute("INSERT INTO Tableshot(TABLEID, SHOTID) VALUES (?,?0)", (tableID, shotID))
+            self.cur.execute("INSERT INTO Tableshot(TABLEID, SHOTID) VALUES (?, ?)", (tableID, shotID))
             self.conn.commit()
             return shotID
         except Exception as e:
             print(f"Issue in recordTableshot : {e}")
+
+    def newShot(self, gameID, playerID):
+        Query=""" INSERT INTO Shot (PLAYERID, GAMEID) VALUES (?, ?)
+                """
+
+        try:
+            self.cur.execute(Query, (playerID, gameID))
+            self.conn.commit()
+            return self.cur.lastrowid
+        except Exception as e:
+            return None;
+
 #--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Game class implemented here now
 
@@ -683,6 +694,14 @@ class Game:
 
             table = seg
             oldTime = table.time
+
+
+
+
+
+
+
+
 
 
 
