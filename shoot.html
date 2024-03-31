@@ -1,29 +1,88 @@
+<!DOCTYPE html>
 <html>
-  <head>
-    <title> Shoot! </title>
-  </head>
-  <body>
-    <form action="display.html" method="post">
-      <h3> Still Ball </h3>
-        <label for="sb_number">Number (1-15):</label>
-        <input type="text" id="sb_number" name="sb_number" size="2" />
-        <label for="sb_x">X (28.5-1321.5):</label>
-        <input type="text" id="sb_x" name="sb_x" size="6" />
-        <label for="sb_y">Y (28.5-2671.5):</label>
-        <input type="text" id="sb_y" name="sb_y" size="6" />
-      <h3> Rolling Ball </h3>
-        <label for="rb_number">Number:</label>
-        <input type="text" id="rb_number" name="rb_number" size="2"
-	       value="0" readonly />
-        <label for="rb_x">X (28.5-1321.5):</label>
-        <input type="text" id="rb_x" name="rb_x" size="6" />
-        <label for="rb_y">Y (28.5-2671.5):</label>
-        <input type="text" id="rb_y" name="rb_y" size="6" />
-        <label for="rb_dx">&Delta;X:</label>
-        <input type="text" id="rb_dx" name="rb_dx" size="6" />
-        <label for="rb_dy">&Delta;Y:</label>
-        <input type="text" id="rb_dy" name="rb_dy" size="6" />
-      <h3> <input type="submit" value="Shoot!" /> </h3>
+<head>
+    <title>Pool Game - Player Names</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 20px;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 300px;
+            margin-top: 20px;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        #svgContainer {
+            width: 100%; /* Adjust based on your actual SVG size */
+            height: 600px; /* Adjust based on your actual SVG size */
+            border: 1px solid #ccc;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>POOLGAME</h1>
+    <form id="playerNamesForm" action="/initializeGame" method="post">
+        <div>
+            <label for="player1Name">Player 1 Name:</label>
+            <input type="text" id="player1Name" name="player1Name" required>
+        </div>
+        <div>
+            <label for="player2Name">Player 2 Name:</label>
+            <input type="text" id="player2Name" name="player2Name" required>
+        </div>
+        <div>
+            <input type="submit" value="Submit">
+        </div>
     </form>
-  </body>
+    <div id="svgContainer">
+        <!-- This container will hold the SVG pool table. It will be populated after the game initializes -->
+    </div>
+    <script src="gameInteraction.js"></script>
+</body>
 </html>
